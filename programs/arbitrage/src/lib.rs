@@ -1,4 +1,10 @@
+use crate::state::*;
 use anchor_lang::prelude::*;
+use instructions::*;
+
+mod instructions;
+mod state;
+
 
 declare_id!("3pRCczvKX3eUmgwHpf9jLjoWykLw19CT2TXyisSweL5w");
 
@@ -6,10 +12,7 @@ declare_id!("3pRCczvKX3eUmgwHpf9jLjoWykLw19CT2TXyisSweL5w");
 pub mod arbitrage {
     use super::*;
 
-    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
-        Ok(())
+    pub fn create_vault(ctx: Context<CreateVault>, args: CreateVaultArgs) -> Result<()> {
+        instructions::create_vault(ctx, args)
     }
 }
-
-#[derive(Accounts)]
-pub struct Initialize {}

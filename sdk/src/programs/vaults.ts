@@ -1,9 +1,8 @@
-import { Connection } from '@solana/web3.js'
+import { Connection, PublicKey } from '@solana/web3.js'
 import {
   VAULT_PROGRAM_ID,
   VaultClient,
-  getTokenVaultAddressSync,
-  getVaultAddressSync
+  getVaultDepositorAddressSync
 } from '@drift-labs/vaults-sdk'
 import Drift from '../lib/dex/drift'
 import { Wallet } from '../types/wallet'
@@ -16,6 +15,7 @@ export default class Trading {
   drift: Drift
   vault: VaultClient
   vaultProgram: Program<DriftVaults>
+  connection: Connection
 
   constructor(wallet: Wallet, env: DriftEnv, connection: Connection) {
     this.drift = new Drift(wallet, env, connection)
@@ -61,7 +61,28 @@ export default class Trading {
     this.vault.initializeVault({ ...params, name: nameEncoded })
   }
 
-  deposit() {}
+  /**
+   * @param amount The amount to deposit
+   * @param vaultAddress The vault address
+   * @param walletAddress The authority of the wallet
+   * @returns TransactionSignature
+   */
+  async deposit(params: {
+    amount: BN
+    vaultAddress: PublicKey
+    walletAddress: PublicKey
+  }) {
+    const vaultDepositor = getVaultDepositorAddressSync(
+      VAULT_PROGRAM_ID,
+      params.vaultAddress,
+      params.walletAddress
+    )
+
+    await this.vault.deposit(vaultDepositor, params.amount, {
+      authority: params.walletAddress,
+      vault: params.vaultAddress
+    })
+  }
 
   withdraw() {}
 }

@@ -7,11 +7,7 @@ import {
 } from '@drift-labs/vaults-sdk'
 import Drift from '../lib/dex/drift'
 import { Wallet } from '../types/wallet'
-import {
-  DriftEnv,
-  PERCENTAGE_PRECISION,
-  convertToNumber
-} from '@drift-labs/sdk'
+import { DriftEnv, convertToNumber } from '@drift-labs/sdk'
 import { BN, Program } from '@coral-xyz/anchor'
 import { DriftVaults, IDL } from '@drift-labs/vaults-sdk/lib/types/drift_vaults'
 import { encodeName } from '../utils/name'

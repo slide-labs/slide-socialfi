@@ -23,7 +23,7 @@ import {
 import { AnchorProvider, BN } from '@project-serum/anchor'
 import { PublicKey, Connection } from '@solana/web3.js'
 import { Wallet } from '../../types/wallet'
-import { getAccount, getAssociatedTokenAddress } from '@solana/spl-token'
+import { getAssociatedTokenAddress } from '@solana/spl-token'
 
 export default class Drift {
   public env: DriftEnv
@@ -63,7 +63,7 @@ export default class Drift {
       'confirmed',
       1000
     )
-    
+
     this.driftClient = new DriftClient({
       connection: this.connection,
       wallet: this.anchorProvider.wallet,

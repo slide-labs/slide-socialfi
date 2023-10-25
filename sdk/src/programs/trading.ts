@@ -2,16 +2,21 @@ import { Connection, PublicKey } from '@solana/web3.js'
 import {
   VAULT_PROGRAM_ID,
   VaultClient,
+  decodeName,
   getVaultDepositorAddressSync
 } from '@drift-labs/vaults-sdk'
 import Drift from '../lib/dex/drift'
 import { Wallet } from '../types/wallet'
-import { DriftEnv } from '@drift-labs/sdk'
+import {
+  DriftEnv,
+  PERCENTAGE_PRECISION,
+  convertToNumber
+} from '@drift-labs/sdk'
 import { BN, Program } from '@coral-xyz/anchor'
 import { DriftVaults, IDL } from '@drift-labs/vaults-sdk/lib/types/drift_vaults'
 import { encodeName } from '../utils/name'
 
-export default class Trading {
+export class Trading {
   drift: Drift
   vault: VaultClient
   vaultProgram: Program<DriftVaults>
@@ -31,7 +36,36 @@ export default class Trading {
     })
   }
 
-  getTopVaults() {}
+  async getVaults() {
+    const response = await this.vaultProgram.account.vault.all()
+
+    const data = response.map((vault) => ({
+      name: decodeName(vault.account.name),
+      tvl: convertToNumber(
+        vault.account.totalDeposits.sub(vault.account.totalWithdraws)
+      ),
+      totalDeposits: convertToNumber(vault.account.totalDeposits),
+      totalWithdraws: convertToNumber(vault.account.totalWithdraws),
+      address: vault.publicKey.toBase58(),
+      createdAt: vault.account.initTs.toString(),
+      tokenAccount: vault.account.tokenAccount.toBase58(),
+      totalShares: convertToNumber(
+        vault.account.totalDeposits
+          .sub(vault.account.totalWithdraws)
+          .sub(vault.account.totalShares)
+      ),
+      managementFee: Number(vault.account.managementFee.toString()) / 10000,
+      manager: vault.account.manager.toBase58(),
+      maxTokens: convertToNumber(vault.account.maxTokens),
+      managerTotalProfitShare: convertToNumber(
+        vault.account.managerTotalProfitShare
+      ),
+      profitShare: vault.account.profitShare / 10000,
+      spotMarketIndex: vault.account.spotMarketIndex
+    }))
+
+    return data
+  }
 
   /**
    * @param name The name of the vault. Vault pubkey is derived from this name.

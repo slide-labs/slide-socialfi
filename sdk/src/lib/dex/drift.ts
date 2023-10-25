@@ -63,21 +63,21 @@ export default class Drift {
       'confirmed',
       1000
     )
+    
+    this.driftClient = new DriftClient({
+      connection: this.connection,
+      wallet: this.anchorProvider.wallet,
+      programID: this.driftPublicKey,
+      ...getMarketsAndOraclesForSubscription(this.env),
+      accountSubscription: {
+        type: 'polling',
+        accountLoader: this.bulkAccountLoader
+      }
+    })
   }
 
   init = async () => {
     try {
-      this.driftClient = new DriftClient({
-        connection: this.connection,
-        wallet: this.anchorProvider.wallet,
-        programID: this.driftPublicKey,
-        ...getMarketsAndOraclesForSubscription(this.env),
-        accountSubscription: {
-          type: 'polling',
-          accountLoader: this.bulkAccountLoader
-        }
-      })
-
       await this.driftClient.subscribe()
 
       const driftAcc = getUserAccountPublicKeySync(

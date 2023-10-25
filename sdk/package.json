@@ -1,6 +1,6 @@
 {
   "name": "@slidelabs/socialfi",
-  "version": "0.0.1",
+  "version": "0.0.23",
   "description": "The official socialfi. Create vaults, trade Tokens and NFTs, arbitrage and create market maker on the Solana blockchain. on top of Drift Protocol and Solana DEX's",
   "main": "./dist/index.js",
   "module": "./dist/index.js",

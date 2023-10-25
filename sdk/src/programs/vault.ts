@@ -32,6 +32,20 @@ export class Vault {
     })
   }
 
+  async tvl() {
+    const response = await this.vaultProgram.account.vault.all()
+
+    let tvl = 0
+
+    response.forEach((vault) => {
+      tvl += convertToNumber(
+        vault.account.totalDeposits.sub(vault.account.totalWithdraws)
+      )
+    })
+
+    return tvl
+  }
+
   async getVaults() {
     const response = await this.vaultProgram.account.vault.all()
 

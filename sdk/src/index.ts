@@ -1,2 +1,2 @@
 export * from './programs/arbitrage'
-export * from './programs/trading'
+export * from './programs/vaults'

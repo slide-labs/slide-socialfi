@@ -12,7 +12,7 @@ import { BN, Program } from '@coral-xyz/anchor'
 import { DriftVaults, IDL } from '@drift-labs/vaults-sdk/lib/types/drift_vaults'
 import { encodeName } from '../utils/name'
 
-export class Trading {
+export class Vaults {
   drift: Drift
   vault: VaultClient
   vaultProgram: Program<DriftVaults>
@@ -94,25 +94,32 @@ export class Trading {
   /**
    * @param amount The amount to deposit
    * @param vaultAddress The vault address
-   * @param walletAddress The authority of the wallet
    * @returns TransactionSignature
    */
-  async deposit(params: {
-    amount: BN
-    vaultAddress: PublicKey
-    walletAddress: PublicKey
-  }) {
+  async deposit(params: { amount: BN; vaultAddress: PublicKey }) {
     const vaultDepositor = getVaultDepositorAddressSync(
       VAULT_PROGRAM_ID,
       params.vaultAddress,
-      params.walletAddress
+      this.drift.wallet.publicKey
     )
 
     await this.vault.deposit(vaultDepositor, params.amount, {
-      authority: params.walletAddress,
+      authority: this.drift.wallet.publicKey,
       vault: params.vaultAddress
     })
   }
 
-  withdraw() {}
+  /**
+   * @param vaultAddress The vault address
+   * @returns TransactionSignature
+   */
+  async withdraw(params: { vaultAddress: PublicKey }) {
+    const vaultDepositor = getVaultDepositorAddressSync(
+      VAULT_PROGRAM_ID,
+      params.vaultAddress,
+      this.drift.wallet.publicKey
+    )
+
+    await this.vault.withdraw(vaultDepositor)
+  }
 }

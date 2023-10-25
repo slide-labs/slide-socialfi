@@ -12,7 +12,7 @@ import { BN, Program } from '@coral-xyz/anchor'
 import { DriftVaults, IDL } from '@drift-labs/vaults-sdk/lib/types/drift_vaults'
 import { encodeName } from '../utils/name'
 
-export class Vaults {
+export class Vault {
   drift: Drift
   vault: VaultClient
   vaultProgram: Program<DriftVaults>

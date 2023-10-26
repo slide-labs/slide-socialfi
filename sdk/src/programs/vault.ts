@@ -184,34 +184,23 @@ export class Vault {
       tokenProgram: TOKEN_PROGRAM_ID
     }
 
-    if (hasAccount) {
-      const depositIx = await this.vaultProgram.methods
-        .deposit(params.amount)
-        .accounts({
-          authority: this.drift.driftClient.wallet.publicKey,
-          ...accounts,
-          ...remainingAccounts
-        })
-        .instruction()
-
-      transactions = [depositIx]
-    }
-
     if (!hasAccount) {
-      const vaultDepositorIx = await this.vaultProgram.methods
-        .initializeVaultDepositor()
-        .accounts({
-          vaultDepositor,
-          vault: vaultPubKey,
-          authority: this.drift.driftClient.wallet.publicKey,
-          payer: this.drift.driftClient.wallet.publicKey,
-          rent: SYSVAR_RENT_PUBKEY,
-          systemProgram: SystemProgram.programId
-        })
-        .instruction()
-
-      transactions = [vaultDepositorIx]
+      await this.vault.initializeVaultDepositor(
+        vaultPubKey,
+        this.drift.driftClient.wallet.publicKey
+      )
     }
+
+    const depositIx = await this.vaultProgram.methods
+      .deposit(params.amount)
+      .accounts({
+        authority: this.drift.driftClient.wallet.publicKey,
+        ...accounts,
+        ...remainingAccounts
+      })
+      .instruction()
+
+    transactions.push(depositIx)
 
     const message = new TransactionMessage({
       payerKey: new PublicKey(this.drift.driftClient.wallet.publicKey),

@@ -1,4 +1,12 @@
-import { Connection, PublicKey } from '@solana/web3.js'
+import {
+  Connection,
+  PublicKey,
+  TransactionInstruction,
+  TransactionMessage,
+  VersionedTransaction,
+  SYSVAR_RENT_PUBKEY,
+  SystemProgram
+} from '@solana/web3.js'
 import {
   VAULT_PROGRAM_ID,
   VaultClient,
@@ -7,10 +15,18 @@ import {
 } from '@drift-labs/vaults-sdk'
 import Drift from '../lib/dex/drift'
 import { Wallet } from '../types/wallet'
-import { DriftEnv, convertToNumber } from '@drift-labs/sdk'
+import {
+  DriftEnv,
+  convertToNumber,
+  getUserStatsAccountPublicKey
+} from '@drift-labs/sdk'
 import { BN, Program } from '@coral-xyz/anchor'
 import { DriftVaults, IDL } from '@drift-labs/vaults-sdk/lib/types/drift_vaults'
 import { encodeName } from '../utils/name'
+import {
+  TOKEN_PROGRAM_ID,
+  getAssociatedTokenAddressSync
+} from '@solana/spl-token'
 
 export class Vault {
   drift: Drift
@@ -71,7 +87,9 @@ export class Vault {
         vault.account.managerTotalProfitShare
       ),
       profitShare: vault.account.profitShare / 10000,
-      spotMarketIndex: vault.account.spotMarketIndex
+      spotMarketIndex: vault.account.spotMarketIndex,
+      minDepositAmount: convertToNumber(vault.account.minDepositAmount),
+      isPrivate: vault.account.permissioned
     }))
 
     return data
@@ -112,15 +130,101 @@ export class Vault {
    */
   async deposit(params: { amount: BN; vaultAddress: PublicKey }) {
     const vaultDepositor = getVaultDepositorAddressSync(
-      VAULT_PROGRAM_ID,
-      params.vaultAddress,
-      this.drift.wallet.publicKey
+      this.vaultProgram.programId,
+      new PublicKey(params.vaultAddress),
+      this.drift.driftClient.wallet.publicKey
+    )
+    const vaultPubKey = new PublicKey(params.vaultAddress)
+
+    await this.drift.init()
+
+    let hasAccount = true
+
+    try {
+      await this.vaultProgram.account.vaultDepositor.fetch(vaultDepositor)
+    } catch {
+      hasAccount = false
+    }
+
+    let transactions: TransactionInstruction[] = []
+
+    const vaultAccount =
+      await this.vaultProgram.account.vault.fetch(vaultPubKey)
+
+    const remainingAccounts = this.drift.driftClient.getRemainingAccounts({
+      userAccounts: [this.drift.user.getUserAccount()],
+      writableSpotMarketIndexes: [vaultAccount.spotMarketIndex]
+    })
+
+    const userStatsKey = getUserStatsAccountPublicKey(
+      this.drift.driftClient.program.programId,
+      vaultPubKey
     )
 
-    await this.vault.deposit(vaultDepositor, params.amount, {
-      authority: this.drift.wallet.publicKey,
-      vault: params.vaultAddress
-    })
+    const driftStateKey = await this.drift.driftClient.getStatePublicKey()
+
+    const spotMarket = this.drift.driftClient.getSpotMarketAccount(
+      vaultAccount.spotMarketIndex
+    )
+
+    const accounts = {
+      vault: vaultPubKey,
+      vaultDepositor,
+      vaultTokenAccount: vaultAccount.tokenAccount,
+      driftUserStats: userStatsKey,
+      driftUser: vaultAccount.user,
+      driftState: driftStateKey,
+      driftSpotMarketVault: spotMarket.vault,
+      userTokenAccount: getAssociatedTokenAddressSync(
+        spotMarket.mint,
+        this.drift.driftClient.wallet.publicKey,
+        true
+      ),
+      driftProgram: this.drift.driftClient.program.programId,
+      tokenProgram: TOKEN_PROGRAM_ID
+    }
+
+    if (hasAccount) {
+      const depositIx = await this.vaultProgram.methods
+        .deposit(params.amount)
+        .accounts({
+          authority: this.drift.driftClient.wallet.publicKey,
+          ...accounts,
+          ...remainingAccounts
+        })
+        .instruction()
+
+      transactions = [depositIx]
+    }
+
+    if (!hasAccount) {
+      const vaultDepositorIx = await this.vaultProgram.methods
+        .initializeVaultDepositor()
+        .accounts({
+          vaultDepositor,
+          vault: vaultPubKey,
+          authority: this.drift.driftClient.wallet.publicKey,
+          payer: this.drift.driftClient.wallet.publicKey,
+          rent: SYSVAR_RENT_PUBKEY,
+          systemProgram: SystemProgram.programId
+        })
+        .instruction()
+
+      transactions = [vaultDepositorIx]
+    }
+
+    const message = new TransactionMessage({
+      payerKey: new PublicKey(this.drift.driftClient.wallet.publicKey),
+      recentBlockhash: (await this.drift.connection.getLatestBlockhash())
+        .blockhash,
+      instructions: transactions
+    }).compileToV0Message()
+
+    const transaction = new VersionedTransaction(message)
+
+    await this.drift.wallet.signTransaction(transaction)
+
+    await this.drift.connection.sendRawTransaction(transaction.serialize())
   }
 
   /**
@@ -128,6 +232,8 @@ export class Vault {
    * @returns TransactionSignature
    */
   async withdraw(params: { vaultAddress: PublicKey }) {
+    await this.drift.init()
+
     const vaultDepositor = getVaultDepositorAddressSync(
       VAULT_PROGRAM_ID,
       params.vaultAddress,
